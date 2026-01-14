@@ -167,6 +167,7 @@ export default function SellEntry() {
                 <div class="header">
                     <h1>*** EVERGREEN FOODS ***</h1>
                     <p>Customer Billing Invoice</p>
+                    <p>Khetasri, jaunpur, Mob. 7897404065 9935283846</p>
                 </div>
                 <div class="divider"></div>
                 <div class="section">
@@ -193,7 +194,7 @@ export default function SellEntry() {
 
                 <div class="section">
                     <p class="bold" style="margin-bottom: 5px;">BILL DETAILS:</p>
-                    <div class="row"><span>Previous Due:</span> <span>₹ ${prevDue.toFixed(2)}</span></div>
+                    <div class="row"><span>Previous Due:</span> <span>₹ ${Number(prevDue || 0).toFixed(2)}</span></div>
                     <div class="row"><span>Total Weight:</span> <span>${weight} KG</span></div>
                     <div class="row"><span>Rate per KG:</span> <span>₹ ${rate}</span></div>
                     <div class="row"><span class="bold">Total Amount:</span> <span class="bold">₹ ${totalAmount.toFixed(2)}</span></div>
@@ -226,9 +227,26 @@ export default function SellEntry() {
   const handlePrint = async () => {
     try {
       const html = generateInvoiceHtml();
-      await Print.printAsync({ html });
-    } catch (e) {
-      Alert.alert("Error", "Printing failed");
+
+      // First try to print directly
+      const result = await Print.printAsync({ html });
+
+      // If print was cancelled or completed, result will be undefined but no error
+      console.log("Print result:", result);
+    } catch (e: any) {
+      console.error("Print error:", e);
+
+      // If direct print fails, offer to generate PDF instead
+      Alert.alert("Print Not Available", "Direct printing failed. Would you like to generate a PDF instead?", [
+        {
+          text: "Generate PDF",
+          onPress: handlePdf,
+        },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+      ]);
     }
   };
 
@@ -260,6 +278,9 @@ export default function SellEntry() {
 
     setSubmitting(true);
     try {
+      // Capture the invoice HTML BEFORE submitting (in case state changes)
+      const invoiceHtml = generateInvoiceHtml();
+
       await DataService.addSellEntry({
         type: "SELL",
         amount: parseFloat(weight),
@@ -277,11 +298,40 @@ export default function SellEntry() {
         details: `Bill for ${weight}KG @ ₹${rate}, Paid: ₹${(parseFloat(cash) || 0) + (parseFloat(upi) || 0)}`,
       });
 
+      // Use captured HTML for printing
+      const printInvoice = async () => {
+        try {
+          await Print.printAsync({ html: invoiceHtml });
+        } catch (e: any) {
+          console.error("Print error:", e);
+          // Fallback to PDF if print fails
+          try {
+            const { uri } = await Print.printToFileAsync({ html: invoiceHtml });
+            await shareAsync(uri, { UTI: ".pdf", mimeType: "application/pdf" });
+          } catch (pdfError) {
+            console.error("PDF error:", pdfError);
+            Alert.alert("Error", "Could not print or generate PDF");
+          }
+        }
+      };
+
       Alert.alert("Success", "Bill submitted successfully!", [
         {
           text: "Print Invoice",
           onPress: async () => {
-            await handlePrint();
+            await printInvoice();
+            router.replace("/(app)");
+          },
+        },
+        {
+          text: "Share as PDF",
+          onPress: async () => {
+            try {
+              const { uri } = await Print.printToFileAsync({ html: invoiceHtml });
+              await shareAsync(uri, { UTI: ".pdf", mimeType: "application/pdf" });
+            } catch (e) {
+              console.error("PDF error:", e);
+            }
             router.replace("/(app)");
           },
         },
@@ -293,6 +343,7 @@ export default function SellEntry() {
       ]);
     } catch (e) {
       Alert.alert("Error", "Failed to submit bill.");
+      console.log("error", e);
     } finally {
       setSubmitting(false);
     }

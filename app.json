@@ -21,7 +21,8 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.expofaisal.driverapp"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -31,6 +32,12 @@
       "expo-secure-store",
       "expo-font"
     ],
-    "scheme": "driver-app"
+    "scheme": "driver-app",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6ae75472-24b9-439b-8fa7-88d692338227"
+      }
+    }
   }
 }
