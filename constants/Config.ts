@@ -5,6 +5,6 @@
 import { Platform } from "react-native";
 
 const LOCALHOST = Platform.OS === "android" ? "10.0.2.2" : "localhost";
-export const API_BASE_URL = `https://evergreen-foods-backend.vercel.app`;
-// export const API_BASE_URL = "http://192.168.1.4:3000";
+// export const API_BASE_URL = `https://evergreen-foods-backend.vercel.app`;
+export const API_BASE_URL = "http://192.168.1.4:3000";
 // export const API_BASE_URL = 'http://192.168.x.x:3000'; // Uncomment and set for physical device
