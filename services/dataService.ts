@@ -39,6 +39,15 @@ export interface Customer {
   balance: number;
 }
 
+export interface Company {
+  id: string;
+  name: string;
+  mobile?: string | null;
+  address?: string | null;
+  amountDue?: number;
+  createdAt?: string;
+}
+
 export interface Notification {
   id: string;
   message: string;
@@ -139,6 +148,11 @@ export const DataService = {
 
   getCustomerHistory: async (id: string) => {
     const response = await api.get(`/customers/${id}/history`);
+    return response.data;
+  },
+
+  getCompanies: async (params?: { page?: number; name?: string; mobile?: string; address?: string }) => {
+    const response = await api.get(`${API_BASE_URL}/admin/companies`, { params });
     return response.data;
   },
 

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image, ActivityIndicator, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Camera, Calendar, Save, Trash2, Upload, User as UserIcon } from "lucide-react-native";
 import { Colors } from "../../../constants/Colors";
 import { AuthService, User } from "../../../services/authService";
-import { DataService, Transaction } from "../../../services/dataService";
+import { Company, DataService, Transaction } from "../../../services/dataService";
 import { uploadImageFromUri } from "../../../utils/firebase";
 
 export default function BuyEntry() {
@@ -24,9 +24,26 @@ export default function BuyEntry() {
   // History State
   const [history, setHistory] = useState<Transaction[]>([]);
 
+  // Companies Dropdown State
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [companySearch, setCompanySearch] = useState("");
+  const [companyDropdownVisible, setCompanyDropdownVisible] = useState(false);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companyPage, setCompanyPage] = useState(1);
+  const [companyTotalPages, setCompanyTotalPages] = useState(1);
+
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (!companyDropdownVisible) return;
+    const timeout = setTimeout(() => {
+      fetchCompanies(1, companySearch, false);
+      setCompanyPage(1);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [companySearch, companyDropdownVisible]);
 
   const loadInitialData = async () => {
     try {
@@ -42,6 +59,35 @@ export default function BuyEntry() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCompanies = async (pageToLoad: number, search: string, append: boolean) => {
+    setCompanyLoading(true);
+    try {
+      const response = await DataService.getCompanies({ page: pageToLoad, name: search || undefined });
+      const list = response.companies || [];
+      setCompanies((prev) => (append ? [...prev, ...list] : list));
+      setCompanyTotalPages(response.totalPages || 1);
+    } catch (error) {
+      console.error("Failed to load companies", error);
+      if (!append) setCompanies([]);
+    } finally {
+      setCompanyLoading(false);
+    }
+  };
+
+  const openCompanyDropdown = () => {
+    setCompanySearch(companyName);
+    setCompanyDropdownVisible(true);
+    fetchCompanies(1, companyName, false);
+    setCompanyPage(1);
+  };
+
+  const handleLoadMoreCompanies = async () => {
+    if (companyLoading || companyPage >= companyTotalPages) return;
+    const nextPage = companyPage + 1;
+    await fetchCompanies(nextPage, companySearch, true);
+    setCompanyPage(nextPage);
   };
 
   const handleCameraLaunch = async () => {
@@ -146,7 +192,9 @@ export default function BuyEntry() {
         {/* Company Name */}
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Company Name</Text>
-          <TextInput style={styles.input} value={companyName} onChangeText={setCompanyName} placeholder="Enter company name" placeholderTextColor="#666" />
+        <TouchableOpacity style={styles.selectInput} onPress={openCompanyDropdown}>
+          <Text style={[styles.selectText, !companyName && styles.placeholderText]}>{companyName || "Select company"}</Text>
+        </TouchableOpacity>
         </View>
 
         {/* KG */}
@@ -219,6 +267,60 @@ export default function BuyEntry() {
           ))
         )}
       </View>
+
+      <Modal transparent visible={companyDropdownVisible} animationType="fade" onRequestClose={() => setCompanyDropdownVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Company</Text>
+              <TouchableOpacity onPress={() => setCompanyDropdownVisible(false)} style={styles.modalCloseBtn}>
+                <Text style={styles.modalCloseText}>×</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearchRow}>
+              <TextInput
+                style={styles.modalSearchInput}
+                value={companySearch}
+                onChangeText={setCompanySearch}
+                placeholder="Search company..."
+                placeholderTextColor="#666"
+              />
+            </View>
+
+            <ScrollView style={styles.modalList}>
+              {companyLoading && companies.length === 0 ? (
+                <View style={styles.modalLoading}>
+                  <ActivityIndicator color="#0A84FF" />
+                </View>
+              ) : companies.length === 0 ? (
+                <Text style={styles.modalEmptyText}>No companies found.</Text>
+              ) : (
+                companies.map((company) => (
+                  <TouchableOpacity
+                    key={company.id}
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setCompanyName(company.name);
+                      setCompanyDropdownVisible(false);
+                    }}>
+                    <Text style={styles.modalItemText}>{company.name}</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                onPress={handleLoadMoreCompanies}
+                disabled={companyPage >= companyTotalPages || companyLoading}
+                style={[styles.modalLoadMoreBtn, (companyPage >= companyTotalPages || companyLoading) && styles.modalLoadMoreBtnDisabled]}>
+                {companyLoading && companies.length > 0 ? <ActivityIndicator color="#0A84FF" /> : <Text style={styles.modalLoadMoreText}>Load More</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -285,6 +387,22 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 12,
     paddingHorizontal: 16,
+  },
+  selectInput: {
+    backgroundColor: "#2C2C2E",
+    height: 50,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  selectText: {
+    color: "#fff",
+    fontSize: 16,
+  },
+  placeholderText: {
+    color: "#666",
   },
   lockedText: {
     color: "#aaa",
@@ -403,5 +521,95 @@ const styles = StyleSheet.create({
     color: "#30D158",
     fontSize: 16,
     fontWeight: "700",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#1C1C1E",
+    borderRadius: 16,
+    padding: 16,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  modalTitle: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  modalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#2C2C2E",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalCloseText: {
+    color: "#fff",
+    fontSize: 20,
+    lineHeight: 20,
+  },
+  modalSearchRow: {
+    marginBottom: 12,
+  },
+  modalSearchInput: {
+    backgroundColor: "#2C2C2E",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#fff",
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  modalList: {
+    marginBottom: 12,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2C2C2E",
+  },
+  modalItemText: {
+    color: "#fff",
+    fontSize: 15,
+  },
+  modalEmptyText: {
+    color: "#888",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  modalLoading: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+  modalFooter: {
+    alignItems: "center",
+  },
+  modalLoadMoreBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#333",
+    backgroundColor: "#2C2C2E",
+  },
+  modalLoadMoreBtnDisabled: {
+    opacity: 0.5,
+  },
+  modalLoadMoreText: {
+    color: "#0A84FF",
+    fontSize: 13,
+    fontWeight: "600",
   },
 });
