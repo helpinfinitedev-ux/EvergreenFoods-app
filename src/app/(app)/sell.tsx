@@ -68,7 +68,7 @@ export default function SellEntry() {
 
   // Filtered Customers
   const filteredCustomers = useMemo(() => {
-    if (!searchQuery) return [];
+    if (!searchQuery) return customers;
     return customers.filter((c) => (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || (c.mobile || "").includes(searchQuery));
   }, [searchQuery, customers]);
 
@@ -391,29 +391,27 @@ export default function SellEntry() {
                   <TextInput style={styles.searchInput} placeholder="Search Name or Mobile..." placeholderTextColor="#666" value={searchQuery} onChangeText={setSearchQuery} />
                 </View>
 
-                {searchQuery.length > 0 && (
-                  <View style={styles.searchResults}>
-                    {filteredCustomers.map((c) => (
-                      <TouchableOpacity
-                        key={c.id}
-                        style={styles.searchResultItem}
-                        onPress={() => {
-                          setSelectedCustomer(c);
-                          setSearchQuery("");
-                        }}>
-                        <Text style={styles.resultName}>{c.name}</Text>
-                        <Text style={styles.resultSub}>
-                          {c.mobile} • Due: ₹{c.balance}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                    {filteredCustomers.length === 0 && (
-                      <View style={styles.noResult}>
-                        <Text style={styles.noResultText}>No customer found</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
+                <View style={styles.searchResults}>
+                  {filteredCustomers.map((c) => (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={styles.searchResultItem}
+                      onPress={() => {
+                        setSelectedCustomer(c);
+                        setSearchQuery("");
+                      }}>
+                      <Text style={styles.resultName}>{c.name}</Text>
+                      <Text style={styles.resultSub}>
+                        {c.mobile} • Due: ₹{c.balance}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                  {filteredCustomers.length === 0 && (
+                    <View style={styles.noResult}>
+                      <Text style={styles.noResultText}>No customer found</Text>
+                    </View>
+                  )}
+                </View>
 
                 <TouchableOpacity style={styles.addCustomerBtn} onPress={() => setShowAddCustomerModal(true)}>
                   <Plus size={20} color="#0A84FF" />
@@ -707,7 +705,8 @@ const styles = StyleSheet.create({
   searchResults: {
     backgroundColor: "#2C2C2E",
     borderRadius: 12,
-    maxHeight: 200,
+    maxHeight: 600,
+    overflow: "scroll",
     marginBottom: 12,
   },
   searchResultItem: {

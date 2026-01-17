@@ -8,6 +8,9 @@ import {
     TextInput,
     ActivityIndicator,
     Alert,
+    Modal,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -20,6 +23,11 @@ export default function CustomersPage() {
     const [loading, setLoading] = useState(true);
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [advanceModalVisible, setAdvanceModalVisible] = useState(false);
+    const [advanceAmount, setAdvanceAmount] = useState('');
+    const [advanceDetails, setAdvanceDetails] = useState('');
+    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+    const [savingAdvance, setSavingAdvance] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -33,6 +41,40 @@ export default function CustomersPage() {
             Alert.alert('Error', 'Failed to load customers');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const openAdvanceModal = (customer: Customer) => {
+        setSelectedCustomer(customer);
+        setAdvanceAmount('');
+        setAdvanceDetails('');
+        setAdvanceModalVisible(true);
+    };
+
+    const submitAdvance = async () => {
+        if (!selectedCustomer) return;
+        const numericAmount = Number(advanceAmount);
+        if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+            Alert.alert('Invalid amount', 'Please enter a valid advance amount.');
+            return;
+        }
+
+        try {
+            setSavingAdvance(true);
+            const response = await DataService.addCustomerAdvance(
+                selectedCustomer.id,
+                numericAmount,
+                advanceDetails.trim() || undefined
+            );
+            const updatedCustomer = response.customer || response;
+            setCustomers(prev =>
+                prev.map(c => (c.id === selectedCustomer.id ? { ...c, balance: updatedCustomer.balance } : c))
+            );
+            setAdvanceModalVisible(false);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to add advance');
+        } finally {
+            setSavingAdvance(false);
         }
     };
 
@@ -59,6 +101,12 @@ export default function CustomersPage() {
             <View style={styles.cardRight}>
                 <Text style={styles.dueLabel}>Due Amount</Text>
                 <Text style={styles.dueAmount}>₹ {item.balance.toLocaleString()}</Text>
+                <TouchableOpacity
+                    style={styles.advanceButton}
+                    onPress={() => openAdvanceModal(item)}
+                >
+                    <Text style={styles.advanceButtonText}>Add Advance</Text>
+                </TouchableOpacity>
             </View>
         </TouchableOpacity>
     );
@@ -97,6 +145,56 @@ export default function CustomersPage() {
                     <Text style={styles.emptyText}>No customers found.</Text>
                 }
             />
+
+            <Modal visible={advanceModalVisible} transparent animationType="slide">
+                <KeyboardAvoidingView
+                    style={styles.modalBackdrop}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <View style={styles.modalCard}>
+                        <Text style={styles.modalTitle}>Add Advance</Text>
+                        <Text style={styles.modalSubtitle}>
+                            {selectedCustomer ? selectedCustomer.name : ''}
+                        </Text>
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="Advance amount"
+                            placeholderTextColor="#666"
+                            keyboardType="numeric"
+                            value={advanceAmount}
+                            onChangeText={setAdvanceAmount}
+                        />
+                        <TextInput
+                            style={[styles.modalInput, styles.modalInputMultiline]}
+                            placeholder="Details (optional)"
+                            placeholderTextColor="#666"
+                            value={advanceDetails}
+                            onChangeText={setAdvanceDetails}
+                            multiline
+                        />
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity
+                                style={styles.modalCancel}
+                                onPress={() => setAdvanceModalVisible(false)}
+                                disabled={savingAdvance}
+                            >
+                                <Text style={styles.modalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.modalSubmit}
+                                onPress={submitAdvance}
+                                disabled={savingAdvance}
+                            >
+                                {savingAdvance ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.modalSubmitText}>Save</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -187,10 +285,87 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
     },
+    advanceButton: {
+        marginTop: 8,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 10,
+        backgroundColor: '#2C2C2E',
+        borderWidth: 1,
+        borderColor: '#3A3A3C',
+    },
+    advanceButtonText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+    },
     emptyText: {
         color: '#666',
         textAlign: 'center',
         fontStyle: 'italic',
         marginTop: 20,
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.65)',
+        justifyContent: 'center',
+        paddingHorizontal: 20,
+    },
+    modalCard: {
+        backgroundColor: '#1C1C1E',
+        borderRadius: 16,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: '#2C2C2E',
+    },
+    modalTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    modalSubtitle: {
+        color: '#888',
+        marginTop: 4,
+        marginBottom: 12,
+    },
+    modalInput: {
+        backgroundColor: '#0F0F10',
+        color: '#fff',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderWidth: 1,
+        borderColor: '#2C2C2E',
+        marginBottom: 10,
+    },
+    modalInputMultiline: {
+        minHeight: 70,
+        textAlignVertical: 'top',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 8,
+    },
+    modalCancel: {
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#3A3A3C',
+    },
+    modalCancelText: {
+        color: '#bbb',
+        fontWeight: '600',
+    },
+    modalSubmit: {
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        backgroundColor: '#0A84FF',
+    },
+    modalSubmitText: {
+        color: '#fff',
+        fontWeight: '700',
     },
 });

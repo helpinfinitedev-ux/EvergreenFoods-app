@@ -127,7 +127,7 @@ export default function WeightLossEntry() {
         unit: "KG",
         date: new Date().toISOString(),
         itemType: mortalityType,
-        imageUrl: mortalityImage,
+        imageUrl,
         locationCoords: mortalityLocation,
         location: `${mortalityLocation.lat.toFixed(5)}, ${mortalityLocation.lng.toFixed(5)}`,
         details: `Mortality: ${mortalityType}`,
@@ -139,8 +139,8 @@ export default function WeightLossEntry() {
       setMortalityLocation(null);
       loadInitialData(); // Refresh history
     } catch (e: any) {
-      Alert.alert("Error", e?.error || "Failed to submit entry.");
-      console.error(e);
+      Alert.alert("Error", e?.message || "Failed to submit entry.");
+      console.log("Error", JSON.stringify(e, null, 2));
     } finally {
       setSubmitting(false);
     }

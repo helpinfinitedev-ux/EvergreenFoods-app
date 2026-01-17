@@ -151,6 +151,11 @@ export const DataService = {
     return response.data;
   },
 
+  addCustomerAdvance: async (id: string, amount: number, details?: string) => {
+    const response = await api.post(`/customers/${id}/advance`, { amount, details });
+    return response.data;
+  },
+
   getCompanies: async (params?: { page?: number; name?: string; mobile?: string; address?: string }) => {
     const response = await api.get(`${API_BASE_URL}/admin/companies`, { params });
     return response.data;
@@ -171,8 +176,12 @@ export const DataService = {
   },
 
   addWeightLossEntry: async (entry: any) => {
-    const response = await api.post("/weight-loss", entry);
-    return response.data;
+    try {
+      const response = await api.post("/weight-loss", entry);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.error || "Total weight loss is greater than today stock");
+    }
   },
 
   getShopBuyHistory: async () => {

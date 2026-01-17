@@ -9,6 +9,7 @@ export interface User {
   mobile: string;
   name: string;
   role: string;
+  status?: string;
 }
 
 export const AuthService = {
@@ -45,6 +46,7 @@ export const AuthService = {
 
   logout: async () => {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // window.location.href = "/login";
   },
 
   getToken: async () => {
@@ -69,8 +71,7 @@ export const AuthService = {
 
       return response.data.user || null;
     } catch (e) {
-      console.error("Failed to get current user:", e);
-      return null;
+      throw new Error("Failed to get current user. User maybe active");
     }
   },
 };
